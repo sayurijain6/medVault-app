@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.*
+__pycache__
+*.py[cod]
+*$py.class
+.git
+.gitignore
+.dockerignore
+.venv
+env/
+venv/
+ENV/
+firebase-service-account.json
+scratch/
+tests/
