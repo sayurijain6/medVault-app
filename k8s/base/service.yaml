@@ -7,9 +7,6 @@ metadata:
     app.kubernetes.io/name: backend
     app.kubernetes.io/component: backend
     app.kubernetes.io/part-of: medvault
-  annotations:
-    cloud.google.com/backend-config: '{"default": "backend-config"}'
-    cloud.google.com/neg: '{"ingress": true}'
 spec:
   type: ClusterIP
   selector:
@@ -29,8 +26,6 @@ metadata:
     app.kubernetes.io/name: frontend
     app.kubernetes.io/component: frontend
     app.kubernetes.io/part-of: medvault
-  annotations:
-    cloud.google.com/neg: '{"ingress": true}'
 spec:
   type: ClusterIP
   selector:

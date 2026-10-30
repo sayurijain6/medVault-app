@@ -1,0 +1,36 @@
+# Google Kubernetes Engine: GCE load balancer Ingress with container-native NEGs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - backendconfig.yaml
+
+patches:
+  - target:
+      kind: Ingress
+      name: medvault-ingress
+    patch: |-
+      - op: remove
+        path: /spec/ingressClassName
+      - op: add
+        path: /metadata/annotations
+        value:
+          kubernetes.io/ingress.class: "gce"
+  - target:
+      kind: Service
+      name: backend
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/backend-config: '{"default": "backend-config"}'
+          cloud.google.com/neg: '{"ingress": true}'
+  - target:
+      kind: Service
+      name: frontend
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/neg: '{"ingress": true}'

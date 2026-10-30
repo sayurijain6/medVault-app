@@ -1,0 +1,37 @@
+jenkins:
+  systemMessage: "MedVault CI/CD"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_ID:-admin}"
+          password: "${JENKINS_ADMIN_PASSWORD:-admin}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+
+jobs:
+  - script: >
+      pipelineJob('medvault') {
+        description('Test, scan, build and deploy MedVault')
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote { url('${MEDVAULT_REPO_URL:-https://github.com/sayurijain6/medVault-app.git}') }
+                branch('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+        triggers {
+          pollSCM { scmpoll_spec('H/5 * * * *') }
+        }
+      }

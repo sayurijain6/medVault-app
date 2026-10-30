@@ -71,3 +71,12 @@ backend/*.json
 # Temporary uploads / media
 backend/temp/
 backend/uploads/
+
+# Test & CI output
+.pytest_cache/
+.coverage
+coverage.xml
+test-results.xml
+.scannerwork/
+.deploy/
+trivy-*.txt

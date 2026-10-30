@@ -4,9 +4,8 @@ metadata:
   name: medvault-ingress
   labels:
     app.kubernetes.io/name: medvault
-  annotations:
-    kubernetes.io/ingress.class: "gce"
 spec:
+  ingressClassName: nginx
   rules:
     - http:
         paths:

@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/backend:latest
+          image: medvault-backend
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -34,6 +34,7 @@ spec:
           envFrom:
             - secretRef:
                 name: medvault-secrets
+                optional: true
           resources:
             requests:
               cpu: 250m
@@ -82,7 +83,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/frontend:latest
+          image: medvault-frontend
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

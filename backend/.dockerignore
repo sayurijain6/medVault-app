@@ -14,3 +14,7 @@ ENV/
 firebase-service-account.json
 scratch/
 tests/
+.pytest_cache/
+.coverage
+coverage.xml
+test-results.xml

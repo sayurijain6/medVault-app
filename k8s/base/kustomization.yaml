@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: medvault
+
+resources:
+  - namespace.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+  - hpa.yaml
+
+# Jenkins overrides these tags per build (see the Deploy stage in Jenkinsfile).
+images:
+  - name: medvault-backend
+    newName: medvault-backend
+    newTag: latest
+  - name: medvault-frontend
+    newName: medvault-frontend
+    newTag: latest

@@ -45,7 +45,8 @@ This document details the production architecture, build pipelines, and Kubernet
 Create the Kubernetes Secret directly in your cluster via `kubectl` before applying workloads:
 
 ```bash
-kubectl create secret generic medvault-secrets \
+kubectl create namespace medvault --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n medvault create secret generic medvault-secrets \
   --from-literal=OPENAI_API_KEY='YOUR_OPENAI_API_KEY' \
   --from-literal=GROQ_API_KEY='YOUR_GROQ_API_KEY' \
   --from-literal=RESEND_API_KEY='YOUR_RESEND_API_KEY' \
@@ -83,21 +84,24 @@ gcloud builds submit --config=cloudbuild-frontend.yaml .
 
 ## 4. Kubernetes Manifest Apply Sequence
 
-Apply the manifests in the following exact order. Do **NOT** use `kubectl apply -f k8s/` to avoid applying `secret.example.yaml`:
+Manifests are organised with Kustomize: `k8s/base` holds the shared objects and `k8s/overlays/gke` adds the GCE Ingress, NEG annotations and BackendConfig. Pin the Artifact Registry images and apply:
 
 ```bash
-# 1. Apply BackendConfig CRD first so GCP health check rules exist
-kubectl apply -f k8s/backendconfig.yaml
-
-# 2. Apply Services with NEG and BackendConfig annotations
-kubectl apply -f k8s/service.yaml
-
-# 3. Apply Deployments (reads medvault-secrets, launches 2 replicas each)
-kubectl apply -f k8s/deployment.yaml
-
-# 4. Apply Ingress (provisions GCE Load Balancer with / and /api rules)
-kubectl apply -f k8s/ingress.yaml
+mkdir -p .deploy && cat > .deploy/kustomization.yaml <<EOF
+resources:
+  - ../k8s/overlays/gke
+images:
+  - name: medvault-backend
+    newName: asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/backend
+    newTag: latest
+  - name: medvault-frontend
+    newName: asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/frontend
+    newTag: latest
+EOF
+kubectl apply -k .deploy
 ```
+
+`secret.example.yaml` is not part of the Kustomize build, so it is never applied by accident. The Jenkins pipeline (see `DEVOPS.md`) does the same step automatically with per-build image tags.
 
 ---
 
@@ -105,28 +109,28 @@ kubectl apply -f k8s/ingress.yaml
 
 ### Restart workloads to pick up freshly built images
 ```bash
-kubectl rollout restart deployment/backend
-kubectl rollout restart deployment/frontend
+kubectl -n medvault rollout restart deployment/backend
+kubectl -n medvault rollout restart deployment/frontend
 ```
 
 ### Check Rollout and Pod Status
 ```bash
-kubectl rollout status deployment/backend
-kubectl rollout status deployment/frontend
-kubectl get pods -o wide
+kubectl -n medvault rollout status deployment/backend
+kubectl -n medvault rollout status deployment/frontend
+kubectl -n medvault get pods -o wide
 ```
 
 ### Check Services & Ingress Status
 ```bash
-kubectl get svc
-kubectl get ingress medvault-ingress -w
+kubectl -n medvault get svc
+kubectl -n medvault get ingress medvault-ingress -w
 ```
 
 ### End-to-End Curl Verification
 Once `ADDRESS` is assigned on `medvault-ingress` (usually 5–8 minutes for GCP Load Balancer provisioning):
 
 ```bash
-INGRESS_IP=$(kubectl get ingress medvault-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+INGRESS_IP=$(kubectl -n medvault get ingress medvault-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 echo "External Ingress IP: ${INGRESS_IP}"
 
 # 1. Verify Frontend (returns HTTP 200 and HTML)
@@ -143,24 +147,24 @@ curl -s http://${INGRESS_IP}/api/health
 - **ImagePullBackOff / ErrImagePull:**
   Verify GKE Autopilot service account has `Artifact Registry Reader` permissions on `medvault-repo`:
   ```bash
-  kubectl describe pod -l app=backend
-  kubectl describe pod -l app=frontend
+  kubectl -n medvault describe pod -l app=backend
+  kubectl -n medvault describe pod -l app=frontend
   ```
 
 - **CrashLoopBackOff:**
   Check application logs for missing secret keys or database connection errors:
   ```bash
-  kubectl logs -l app=backend --tail=100
-  kubectl logs -l app=frontend --tail=100
-  kubectl get secret medvault-secrets
+  kubectl -n medvault logs -l app=backend --tail=100
+  kubectl -n medvault logs -l app=frontend --tail=100
+  kubectl -n medvault get secret medvault-secrets
   ```
 
 - **502 Bad Gateway / Backend Unhealthy:**
   Google Cloud Load Balancer takes several minutes to mark backends healthy. Inspect BackendConfig and NEG status:
   ```bash
-  kubectl describe ingress medvault-ingress
-  kubectl describe backendconfig backend-config
-  kubectl get svc backend -o yaml
+  kubectl -n medvault describe ingress medvault-ingress
+  kubectl -n medvault describe backendconfig backend-config
+  kubectl -n medvault get svc backend -o yaml
   ```
 
 ---
@@ -170,16 +174,6 @@ curl -s http://${INGRESS_IP}/api/health
 To cleanly remove all deployed Kubernetes resources and release the Google Cloud Load Balancer:
 
 ```bash
-# Delete ingress (releases GCP external IP and forwarding rules)
-kubectl delete -f k8s/ingress.yaml
-
-# Delete deployments
-kubectl delete -f k8s/deployment.yaml
-
-# Delete services and backendconfig
-kubectl delete -f k8s/service.yaml
-kubectl delete -f k8s/backendconfig.yaml
-
-# (Optional) Delete secrets
-kubectl delete secret medvault-secrets
+# Removes the namespace, workloads, services, ingress, HPA and BackendConfig
+kubectl delete -k .deploy
 ```
