@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'VITE_API_URL=/api'
+      - '-t'
+      - 'asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/frontend:latest'
+      - './frontend'
+images:
+  - 'asia-south1-docker.pkg.dev/medvault-511505/medvault-repo/frontend:latest'
